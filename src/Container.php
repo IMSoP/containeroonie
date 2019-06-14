@@ -1,45 +1,60 @@
 <?php
 
-
 namespace IMSoP\Containeroonie;
 
+use IMSoP\Containeroonie\Item\Alias;
+use IMSoP\Containeroonie\Item\ClassFactory;
+use IMSoP\Containeroonie\Item\CustomFactory;
+use IMSoP\Containeroonie\Item\Literal;
+use IMSoP\Containeroonie\Item\Singleton;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
 class Container implements ContainerInterface
 {
-	private $initialisers = [];
-	private $instances = [];
+	private $items = [];
 
-	public function addLiteral($alias, $value)
+	public function addLiteral($id, $value)
 	{
-		$this->instances[$alias] = $value;
+		$this->items[$id] = new Literal($value);
 	}
 	
-	public function addInitialiser($alias, $callable)
+	public function addCustomFactory($id, $callable)
 	{
-		$this->initialisers[$alias] = $callable;
+		$this->items[$id] = new CustomFactory($callable);
 	}
 	
-	public function addClass($alias, $className, $constructorArgs)
+	public function addCustomSingleton($id, $callable)
 	{
-		if ( is_null($alias) ) {
-			$alias = $className;
+		$this->items[$id] = new Singleton(
+			new CustomFactory($callable)
+		);
+	}
+	
+	public function addClassFactory($id, $className, $constructorArgs)
+	{
+		if ( is_null($id) ) {
+			$id = $className;
 		}
 		
-		$this->addInitialiser($alias, function(ContainerInterface $container) use ($className, $constructorArgs) {
-			return new $className(
-				...array_map([$container, 'get'], $constructorArgs)
-			);
-		});
+		$this->items[$id] = new ClassFactory($className, $constructorArgs);
+	}
+	
+	public function addClassSingleton($id, $className, $constructorArgs)
+	{
+		if ( is_null($id) ) {
+			$id = $className;
+		}
+		
+		$this->items[$id] = new Singleton(
+			new ClassFactory($className, $constructorArgs)
+		);
 	}
 	
 	public function addAlias($aliasFrom, $aliasTo)
 	{
-		$this->initialisers[$aliasFrom] = function(ContainerInterface $container) use ($aliasTo) {
-			return $container->get($aliasTo);
-		};
+		$this->items[$aliasFrom] = new Alias($aliasTo);
 	}
 
 	/**
@@ -54,12 +69,8 @@ class Container implements ContainerInterface
 	 */
 	public function get($id)
 	{
-		if ( array_key_exists($id, $this->instances) )  {
-			return $this->instances[$id];
-		}
-		elseif ( array_key_exists($id, $this->initialisers) )  {
-			$this->instances[$id] = $this->initialisers[$id]($this);
-			return $this->instances[$id];
+		if ( array_key_exists($id, $this->items) ) {
+			return $this->items[$id]->build($this);
 		}
 		else {
 			throw new ItemNotFoundException;
@@ -79,6 +90,6 @@ class Container implements ContainerInterface
 	 */
 	public function has($id)
 	{
-		return array_key_exists($id, $this->initialisers);
+		return array_key_exists($id, $this->items);
 	}
 }
