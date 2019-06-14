@@ -20,15 +20,15 @@ class Container implements ContainerInterface
 		$this->items[$id] = new Literal($value);
 	}
 	
-	public function addCustomFactory($id, $callable)
+	public function addCustomFactory($id, $callable, $extraArgs=[])
 	{
-		$this->items[$id] = new CustomFactory($callable);
+		$this->items[$id] = new CustomFactory($callable, $extraArgs);
 	}
 	
-	public function addCustomSingleton($id, $callable)
+	public function addCustomSingleton($id, $callable, $extraArgs=[])
 	{
 		$this->items[$id] = new Singleton(
-			new CustomFactory($callable)
+			new CustomFactory($callable, $extraArgs)
 		);
 	}
 	
